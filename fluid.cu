@@ -278,6 +278,7 @@ __global__ void copyPeriodicKernel(float *p, float *u, float *v, float *w,
         w[indx + (nk + 1) * kskip] = w[indx + kskip];
     }
 }
+}
 
 
 
