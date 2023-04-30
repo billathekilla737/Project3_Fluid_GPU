@@ -1058,26 +1058,75 @@ int main(int ac, char *av[]) {
   // begin Runge-Kutta 3rd Order Time Integration
   while(simTime < stopTime) {
 
-    // copy data to the ghost cells to implement periodic boundary conditions
-    copyPeriodic(&p[0],&u[0],&v[0],&w[0],
-		 ni, nj, nk, kstart, iskip, jskip) ;
 
+
+
+
+
+
+
+
+
+
+
+//Parallel Section
+//################################################################################################################
+
+
+    // copy data to the ghost cells to implement periodic boundary conditions
+    // copyPeriodic(&p[0],&u[0],&v[0],&w[0],
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+    copy_cpu_to_gpu(p_cuda, &p[0],allocsize, "p");
+    copy_cpu_to_gpu(u_cuda, &u[0],allocsize, "u");
+    copy_cpu_to_gpu(v_cuda, &v[0],allocsize, "v");
+    copy_cpu_to_gpu(w_cuda, &w[0],allocsize, "w");
+    copyPeriodic_kernel<<<ni,nk>>>(p_cuda,u_cuda,v_cuda,w_cuda,
+            ni, nj, nk, kstart, iskip, jskip) ;
     // Zero out the residual function 
-    zeroResidual(&presid[0],&uresid[0], &vresid[0], &wresid[0],
-		 ni, nj, nk , kstart, iskip, jskip) ;
+    // zeroResidual(&presid[0],&uresid[0], &vresid[0], &wresid[0],
+		//  ni, nj, nk , kstart, iskip, jskip) ;
+    __syncthreads() ;
+
+
+
+    copy_cpu_to_gpu(presid_cuda, &presid[0],allocsize, "presid");
+    copy_cpu_to_gpu(uresid_cuda, &uresid[0],allocsize, "uresid");
+    copy_cpu_to_gpu(vresid_cuda, &vresid[0],allocsize, "vresid");
+    copy_cpu_to_gpu(wresid_cuda, &wresid[0],allocsize, "wresid");
+
+    zeroResidual_kernel<<<ni,nk>>>(presid_cuda,uresid_cuda, vresid_cuda, wresid_cuda,
+            ni, nj, nk , kstart, iskip, jskip) ;
     // Compute the residual, these will be used to compute the rates of change
     // of pressure and velocity components
+     __syncthreads() ;
 
 
-    computeResidual(&presid[0], &uresid[0], &vresid[0], &wresid[0],
-		    &p[0],&u[0], &v[0], &w[0],
-		    eta, nu, dx, dy, dz,
-		    ni, nj, nk, kstart, iskip, jskip) ;
+    // computeResidual(&presid[0], &uresid[0], &vresid[0], &wresid[0],
+		//     &p[0],&u[0], &v[0], &w[0],
+		//     eta, nu, dx, dy, dz,
+		//     ni, nj, nk, kstart, iskip, jskip) ;
 
+    copy_cpu_to_gpu(p_cuda, &p[0],allocsize, "p");
+    copy_cpu_to_gpu(u_cuda, &u[0],allocsize, "u");
+    copy_cpu_to_gpu(v_cuda, &v[0],allocsize, "v");
+    copy_cpu_to_gpu(w_cuda, &w[0],allocsize, "w");
+    // copy_cpu_to_gpu(presid_cuda, &presid[0],allocsize, "presid");
+    // copy_cpu_to_gpu(uresid_cuda, &uresid[0],allocsize, "uresid");
+    // copy_cpu_to_gpu(vresid_cuda, &vresid[0],allocsize, "vresid");
+    // copy_cpu_to_gpu(wresid_cuda, &wresid[0],allocsize, "wresid");
     computeResidual_kernel_I<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
            p_cuda,u_cuda, v_cuda, w_cuda,
            eta, nu, dx, dy, dz,
            ni, nj, nk, kstart, iskip, jskip) ;
+    computeResidual_kernel_J<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
+            p_cuda,u_cuda, v_cuda, w_cuda,
+            eta, nu, dx, dy, dz,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    computeResidual_kernel_K<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
+            p_cuda,u_cuda, v_cuda, w_cuda,
+            eta, nu, dx, dy, dz,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    __syncthreads() ;
     
     // First Step of the Runge-Kutta time integration
     // unext = u^n + dt/vol*L(u^n)
@@ -1086,8 +1135,6 @@ int main(int ac, char *av[]) {
     copy_cpu_to_gpu(unext_cuda, &u[0],allocsize, "u");
     copy_cpu_to_gpu(vnext_cuda, &v[0],allocsize, "v");
     copy_cpu_to_gpu(wnext_cuda, &w[0],allocsize, "w");
-
-
     weightedSum3__kernel<<<ni,nk>>>(pnext_cuda,1.0,&p[0],dt/(dx*dy*dz),presid_cuda,0.0,
 		ni, nj, nk, kstart, iskip, jskip) ;
     weightedSum3__kernel<<<ni,nk>>>(unext_cuda,1.0,&u[0],dt/(dx*dy*dz),uresid_cuda,0.0,
@@ -1096,6 +1143,8 @@ int main(int ac, char *av[]) {
     ni, nj, nk, kstart, iskip, jskip) ;
     weightedSum3__kernel<<<ni,nk>>>(wnext_cuda,1.0,&w[0],dt/(dx*dy*dz),wresid_cuda,0.0,
     ni, nj, nk, kstart, iskip, jskip) ;
+    __syncthreads() ;
+    
     // weightedSum3(&pnext[0],1.0,&p[0],dt/(dx*dy*dz),&presid[0],0.0,
 		//  ni, nj, nk, kstart, iskip, jskip) ;
     // weightedSum3(&unext[0],1.0,&u[0],dt/(dx*dy*dz),&uresid[0],0.0,
@@ -1113,59 +1162,111 @@ int main(int ac, char *av[]) {
 
     
     // Now we are on the second step of the Runge-Kutta time integration
-    copyPeriodic(&pnext[0],&unext[0],&vnext[0],&wnext[0],
-		 ni, nj, nk, kstart, iskip, jskip) ;
-    zeroResidual(&presid[0],&uresid[0], &vresid[0], &wresid[0],
-		 ni, nj, nk , kstart, iskip, jskip) ;
-    computeResidual(&presid[0], &uresid[0], &vresid[0], &wresid[0],
-		    &pnext[0],&unext[0], &vnext[0], &wnext[0],
-		    eta, nu, dx, dy, dz,
-		    ni, nj, nk, kstart, iskip, jskip) ;
+    // copyPeriodic(&pnext[0],&unext[0],&vnext[0],&wnext[0],
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+    copyPeriodicKernel<<<ni,nk>>>(pnext_cuda,unext_cuda,vnext_cuda,wnext_cuda,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    // zeroResidual(&presid[0],&uresid[0], &vresid[0], &wresid[0],
+		//  ni, nj, nk , kstart, iskip, jskip) ;
+    __syncthreads() ;
+    zeroResidual_kernel<<<ni,nk>>>(presid_cuda,uresid_cuda, vresid_cuda, wresid_cuda,
+            ni, nj, nk , kstart, iskip, jskip) ;
+    // computeResidual(&presid[0], &uresid[0], &vresid[0], &wresid[0],
+		//     &pnext[0],&unext[0], &vnext[0], &wnext[0],
+		//     eta, nu, dx, dy, dz,
+		//     ni, nj, nk, kstart, iskip, jskip) ;
+    __syncthreads() ;
+    computeResidual_kernel_I<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
+           pnext_cuda,unext_cuda, vnext_cuda, wnext_cuda,
+           eta, nu, dx, dy, dz,
+           ni, nj, nk, kstart, iskip, jskip) ;
+    __syncthreads() ;
+
+
+
     
     // Second Step of the Runge-Kutta time integration
     // unext = 3/4 u^n + 1/4 u_next + (1/4)*(dt/vol)*L(unext)
-    weightedSum3(&pnext[0],3./4.,&p[0],dt/(4.*dx*dy*dz),&presid[0],1./4.,
-		 ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3(&unext[0],3./4.,&u[0],dt/(4.*dx*dy*dz),&uresid[0],1./4.,
-		 ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3(&vnext[0],3./4.,&v[0],dt/(4.*dx*dy*dz),&vresid[0],1./4.,
-		 ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3(&wnext[0],3./4.,&w[0],dt/(4.*dx*dy*dz),&wresid[0],1./4.,
-		 ni, nj, nk, kstart, iskip, jskip) ;
+    // weightedSum3(&pnext[0],3./4.,&p[0],dt/(4.*dx*dy*dz),&presid[0],1./4.,
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+    // weightedSum3(&unext[0],3./4.,&u[0],dt/(4.*dx*dy*dz),&uresid[0],1./4.,
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+    // weightedSum3(&vnext[0],3./4.,&v[0],dt/(4.*dx*dy*dz),&vresid[0],1./4.,
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+    // weightedSum3(&wnext[0],3./4.,&w[0],dt/(4.*dx*dy*dz),&wresid[0],1./4.,
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+
+    weightedSum3__kernel<<<ni,nk>>>(pnext_cuda,3./4.,&p[0],dt/(4.*dx*dy*dz),presid_cuda,1./4.,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    weightedSum3__kernel<<<ni,nk>>>(unext_cuda,3./4.,&u[0],dt/(4.*dx*dy*dz),uresid_cuda,1./4.,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    weightedSum3__kernel<<<ni,nk>>>(vnext_cuda,3./4.,&v[0],dt/(4.*dx*dy*dz),vresid_cuda,1./4.,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    weightedSum3__kernel<<<ni,nk>>>(wnext_cuda,3./4.,&w[0],dt/(4.*dx*dy*dz),wresid_cuda,1./4.,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    __syncthreads() ;
 
     // Now we are evaluating the final step of the Runge-Kutta time integration
     // so we need to revaluate the residual on the pnext values
-    copyPeriodic(&pnext[0],&unext[0],&vnext[0],&wnext[0],
-		 ni, nj, nk, kstart, iskip, jskip) ;
-    
-    zeroResidual(&presid[0],&uresid[0], &vresid[0], &wresid[0],
-		 ni, nj, nk , kstart, iskip, jskip) ;
-    computeResidual(&presid[0], &uresid[0], &vresid[0], &wresid[0],
-		    &pnext[0],&unext[0], &vnext[0], &wnext[0],
-		    eta, nu, dx, dy, dz,
-		    ni, nj, nk, kstart, iskip, jskip) ;
+    // copyPeriodic(&pnext[0],&unext[0],&vnext[0],&wnext[0],
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+    copyPeriodicKernel<<<ni,nk>>>(pnext_cuda,unext_cuda,vnext_cuda,wnext_cuda,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    __syncthreads
+    // zeroResidual(&presid[0],&uresid[0], &vresid[0], &wresid[0],
+		//  ni, nj, nk , kstart, iskip, jskip) ;
+    zeroResidual_kernel<<<ni,nk>>>(presid_cuda,uresid_cuda, vresid_cuda, wresid_cuda,
+            ni, nj, nk , kstart, iskip, jskip) ;
+    __syncthreads() ;
+    // computeResidual(&presid[0], &uresid[0], &vresid[0], &wresid[0],
+		//     &pnext[0],&unext[0], &vnext[0], &wnext[0],
+		//     eta, nu, dx, dy, dz,
+		//     ni, nj, nk, kstart, iskip, jskip) ;
+    computeResidual_kernel_I<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
+           pnext_cuda,unext_cuda, vnext_cuda, wnext_cuda,
+           eta, nu, dx, dy, dz,
+           ni, nj, nk, kstart, iskip, jskip) ;
+    __syncthreads() ;
     
     // Third Step of the Runge-Kutta time integration
     // u^{n+1} = 1/3 u^n + 2/3 unext + (2/3)*(dt/vol)*L(unext)
     // Note, here we are writing the result into the previous timestep
     // so that we will be ready to proceed to the next iteration when
     // this step is finished.
-    weightedSum3(&p[0],2./3.,&pnext[0],2.*dt/(3.*dx*dy*dz),&presid[0],1./3.,
-		 ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3(&u[0],2./3.,&unext[0],2.*dt/(3.*dx*dy*dz),&uresid[0],1./3.,
-		 ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3(&v[0],2./3.,&vnext[0],2.*dt/(3.*dx*dy*dz),&vresid[0],1./3.,
-		 ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3(&w[0],2./3.,&wnext[0],2.*dt/(3.*dx*dy*dz),&wresid[0],1./3.,
-		 ni, nj, nk, kstart, iskip, jskip) ;
+    // weightedSum3(&p[0],2./3.,&pnext[0],2.*dt/(3.*dx*dy*dz),&presid[0],1./3.,
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+    // weightedSum3(&u[0],2./3.,&unext[0],2.*dt/(3.*dx*dy*dz),&uresid[0],1./3.,
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+    // weightedSum3(&v[0],2./3.,&vnext[0],2.*dt/(3.*dx*dy*dz),&vresid[0],1./3.,
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+    // weightedSum3(&w[0],2./3.,&wnext[0],2.*dt/(3.*dx*dy*dz),&wresid[0],1./3.,
+		//  ni, nj, nk, kstart, iskip, jskip) ;
+
+    weightedSum3_kernel<<<ni,nk>>>(p_cuda,2./3.,pnext_cuda,2.*dt/(3.*dx*dy*dz),presid_cuda,1./3.,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    weightedSum3_kernel<<<ni,nk>>>(u_cuda,2./3.,unext_cuda,2.*dt/(3.*dx*dy*dz),uresid_cuda,1./3.,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    weightedSum3_kernel<<<ni,nk>>>(v_cuda,2./3.,vnext_cuda,2.*dt/(3.*dx*dy*dz),vresid_cuda,1./3.,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    weightedSum3_kernel<<<ni,nk>>>(w_cuda,2./3.,wnext_cuda,2.*dt/(3.*dx*dy*dz),wresid_cuda,1./3.,
+            ni, nj, nk, kstart, iskip, jskip) ;
+    __syncthreads() ;
+
+
+
 
     // Update the simulation time
     simTime += dt ;
     iter++ ;
 
     // Collect information on the state of kinetic energy in the system
-    float knext = integrateKineticEnergy(&u[0], &v[0], &w[0], dx, dy, dz,
-					 ni,  nj,  nk, kstart, iskip, jskip) ;
+    // float knext = integrateKineticEnergy(&u[0], &v[0], &w[0], dx, dy, dz,
+		// 			 ni,  nj,  nk, kstart, iskip, jskip) ;
+
+    float knext = integrateKineticEnergy_kernel<<<ni,nk>>>(u_cuda, v_cuda, w_cuda, dx, dy, dz,
+            ni,  nj,  nk, kstart, iskip, jskip) ;
+    __syncthreads() ;
+//################################################################################################################
     // write out the data for post processing analysis
     ke_file << simTime << " " << kscale*knext << " " << -kscale*(knext-kprev)/dt << endl;
     // Every 128 iterations report the state so we can observe progress of
