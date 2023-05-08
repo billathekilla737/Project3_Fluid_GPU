@@ -112,11 +112,11 @@ void setInitialConditions_kernel(float *p, float *u, float *v, float *w,
 // Apply periodic boundary conditions at the boundary of the box  
 // void copyPeriodic(float *p, float *u, float *v, float *w,
 // 		  int ni, int nj, int nk , int kstart, int iskip, int jskip) {
-//   const int kskip=1 ;
+//   const int kstart=1 ;
 //   // copy the i periodic faces
 //   for(int j=0;j<nj;++j) {
 //     for(int k=0;k<nk;++k) {
-//       int indx = kstart+j*jskip+k*kskip;
+//       int indx = kstart+j*jskip+k*kstart;
 //       p[indx-iskip] = p[indx+(ni-1)*iskip] ;
 //       p[indx-2*iskip] = p[indx+(ni-2)*iskip] ;
 //       p[indx+ni*iskip] = p[indx] ;
@@ -142,7 +142,7 @@ void setInitialConditions_kernel(float *p, float *u, float *v, float *w,
 //   for(int i=0;i<ni;++i) {
 //     int offset = kstart+i*iskip;
 //     for(int k=0;k<nk;++k) {
-//       const int indx = offset+ k*kskip ;
+//       const int indx = offset+ k*kstart ;
 //       p[indx-jskip] = p[indx+(nj-1)*jskip] ;
 //       p[indx-2*jskip] = p[indx+(nj-2)*jskip] ;
 //       p[indx+nj*jskip] = p[indx] ;
@@ -169,25 +169,25 @@ void setInitialConditions_kernel(float *p, float *u, float *v, float *w,
 //     int offset = kstart+i*iskip;
 //     for(int j=0;j<nj;++j) {
 //       const int indx = j*jskip+offset ;
-//       p[indx-kskip] = p[indx+(nk-1)*kskip] ;
-//       p[indx-2*kskip] = p[indx+(nk-2)*kskip] ;
-//       p[indx+nk*kskip] = p[indx] ;
-//       p[indx+(nk+1)*kskip] = p[indx+kskip] ;
+//       p[indx-kstart] = p[indx+(nk-1)*kstart] ;
+//       p[indx-2*kstart] = p[indx+(nk-2)*kstart] ;
+//       p[indx+nk*kstart] = p[indx] ;
+//       p[indx+(nk+1)*kstart] = p[indx+kstart] ;
 
-//       u[indx-kskip] = u[indx+(nk-1)*kskip] ;
-//       u[indx-2*kskip] = u[indx+(nk-2)*kskip] ;
-//       u[indx+nk*kskip] = u[indx] ;
-//       u[indx+(nk+1)*kskip] = u[indx+kskip] ;
+//       u[indx-kstart] = u[indx+(nk-1)*kstart] ;
+//       u[indx-2*kstart] = u[indx+(nk-2)*kstart] ;
+//       u[indx+nk*kstart] = u[indx] ;
+//       u[indx+(nk+1)*kstart] = u[indx+kstart] ;
       
-//       v[indx-kskip] = v[indx+(nk-1)*kskip] ;
-//       v[indx-2*kskip] = v[indx+(nk-2)*kskip] ;
-//       v[indx+nk*kskip] = v[indx] ;
-//       v[indx+(nk+1)*kskip] = v[indx+kskip] ;
+//       v[indx-kstart] = v[indx+(nk-1)*kstart] ;
+//       v[indx-2*kstart] = v[indx+(nk-2)*kstart] ;
+//       v[indx+nk*kstart] = v[indx] ;
+//       v[indx+(nk+1)*kstart] = v[indx+kstart] ;
 
-//       w[indx-kskip] = w[indx+(nk-1)*kskip] ;
-//       w[indx-2*kskip] = w[indx+(nk-2)*kskip] ;
-//       w[indx+nk*kskip] = w[indx] ;
-//       w[indx+(nk+1)*kskip] = w[indx+kskip] ;
+//       w[indx-kstart] = w[indx+(nk-1)*kstart] ;
+//       w[indx-2*kstart] = w[indx+(nk-2)*kstart] ;
+//       w[indx+nk*kstart] = w[indx] ;
+//       w[indx+(nk+1)*kstart] = w[indx+kstart] ;
 //     }
 //   }
 // }
@@ -204,13 +204,13 @@ void setInitialConditions_kernel(float *p, float *u, float *v, float *w,
 
 __global__ void copyPeriodicKernel(float *p, float *u, float *v, float *w,
                                    int ni, int nj, int nk, int kstart, int iskip, int jskip) {
-    const int kskip = 1;
+    kstart = 1;
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     int j = blockIdx.y * blockDim.y + threadIdx.y;
     int k = blockIdx.z * blockDim.z + threadIdx.z;
 
     if (i < ni && j < nj && k < nk) {
-        int indx = kstart + j * jskip + k * kskip;
+        int indx = kstart + j * jskip + k * kstart;
 
       // copy the i periodic faces
         if (i == 0) {
@@ -236,7 +236,7 @@ __global__ void copyPeriodicKernel(float *p, float *u, float *v, float *w,
         }
     // copy the j periodic faces
         if (j == 0) {
-            indx = kstart + i * iskip + k * kskip;
+            indx = kstart + i * iskip + k * kstart;
 
             p[indx - jskip] = p[indx + (nj - 1) * jskip];
             p[indx - 2 * jskip] = p[indx + (nj - 2) * jskip];
@@ -257,25 +257,25 @@ __global__ void copyPeriodicKernel(float *p, float *u, float *v, float *w,
         if (k == 0) {
         indx = kstart + i * iskip + j * jskip;
 
-        p[indx - kskip] = p[indx + (nk - 1) * kskip];
-        p[indx - 2 * kskip] = p[indx + (nk - 2) * kskip];
-        p[indx + nk * kskip] = p[indx];
-        p[indx + (nk + 1) * kskip] = p[indx + kskip];
+        p[indx - kstart] = p[indx + (nk - 1) * kstart];
+        p[indx - 2 * kstart] = p[indx + (nk - 2) * kstart];
+        p[indx + nk * kstart] = p[indx];
+        p[indx + (nk + 1) * kstart] = p[indx + kstart];
 
-        u[indx - kskip] = u[indx + (nk - 1) * kskip];
-        u[indx - 2 * kskip] = u[indx + (nk - 2) * kskip];
-        u[indx + nk * kskip] = u[indx];
-        u[indx + (nk + 1) * kskip] = u[indx + kskip];
+        u[indx - kstart] = u[indx + (nk - 1) * kstart];
+        u[indx - 2 * kstart] = u[indx + (nk - 2) * kstart];
+        u[indx + nk * kstart] = u[indx];
+        u[indx + (nk + 1) * kstart] = u[indx + kstart];
 
-        v[indx - kskip] = v[indx + (nk - 1) * kskip];
-        v[indx - 2 * kskip] = v[indx + (nk - 2) * kskip];
-        v[indx + nk * kskip] = v[indx];
-        v[indx + (nk + 1) * kskip] = v[indx + kskip];
+        v[indx - kstart] = v[indx + (nk - 1) * kstart];
+        v[indx - 2 * kstart] = v[indx + (nk - 2) * kstart];
+        v[indx + nk * kstart] = v[indx];
+        v[indx + (nk + 1) * kstart] = v[indx + kstart];
 
-        w[indx - kskip] = w[indx + (nk - 1) * kskip];
-        w[indx - 2 * kskip] = w[indx + (nk - 2) * kskip];
-        w[indx + nk * kskip] = w[indx];
-        w[indx + (nk + 1) * kskip] = w[indx + kskip];
+        w[indx - kstart] = w[indx + (nk - 1) * kstart];
+        w[indx - 2 * kstart] = w[indx + (nk - 2) * kstart];
+        w[indx + nk * kstart] = w[indx];
+        w[indx + (nk + 1) * kstart] = w[indx + kstart];
     }
 }
 }
@@ -331,7 +331,7 @@ void zeroResidual_kernel(float *presid, float *uresid, float *vresid, float *wre
 //   // i dimension goes in the +x coordinate direction
 //   // j dimension goes in the +y coordinate direction
 //   // k dimension goes in the +z coordinate direction
-//   const int kskip=1 ;
+//   const int kstart=1 ;
 //   // Loop through i faces of the mesh and compute fluxes in x direction
 //   // Add fluxes to cells that neighbor face
 //   for(int i=0;i<ni+1;++i) {
@@ -466,25 +466,25 @@ void zeroResidual_kernel(float *presid, float *uresid, float *vresid, float *wre
 // 	const int indx = k+offset ;
 // 	// Compute the y direction inviscid flux
 // 	// extract pressures and velocity from the stencil
-// 	float ull = u[indx-2*kskip] ;
-// 	float ul  = u[indx-kskip] ;
+// 	float ull = u[indx-2*kstart] ;
+// 	float ul  = u[indx-kstart] ;
 // 	float ur  = u[indx] ;
-// 	float urr = u[indx+kskip] ;
+// 	float urr = u[indx+kstart] ;
 
-// 	float vll = v[indx-2*kskip] ;
-// 	float vl  = v[indx-kskip] ;
+// 	float vll = v[indx-2*kstart] ;
+// 	float vl  = v[indx-kstart] ;
 // 	float vr  = v[indx] ;
-// 	float vrr = v[indx+kskip] ;
+// 	float vrr = v[indx+kstart] ;
 
-// 	float wll = w[indx-2*kskip] ;
-// 	float wl  = w[indx-kskip] ;
+// 	float wll = w[indx-2*kstart] ;
+// 	float wl  = w[indx-kstart] ;
 // 	float wr  = w[indx] ;
-// 	float wrr = w[indx+kskip] ;
+// 	float wrr = w[indx+kstart] ;
 
-// 	float pll = p[indx-2*kskip] ;
-// 	float pl  = p[indx-kskip] ;
+// 	float pll = p[indx-2*kstart] ;
+// 	float pl  = p[indx-kstart] ;
 // 	float pr  = p[indx] ;
-// 	float prr = p[indx+kskip] ;
+// 	float prr = p[indx+kstart] ;
 // 	float pterm = (2./3.)*(pl+pr) - (1./12.)*(pl+pr+pll+prr) ;
 // 	// y direction so the flux will be a function of v
 // 	float udotn1 = wl+wr ;
@@ -504,223 +504,249 @@ void zeroResidual_kernel(float *presid, float *uresid, float *vresid, float *wre
 // 	uflux = area*(uflux - vcoef*((5./4.)*(ur-ul) - (1./12.)*(urr-ull))) ;
 // 	vflux = area*(vflux - vcoef*((5./4.)*(vr-vl) - (1./12.)*(vrr-vll))) ;
 // 	wflux = area*(wflux - vcoef*((5./4.)*(wr-wl) - (1./12.)*(wrr-wll))) ;
-// 	presid[indx-kskip] -= pflux ;
+// 	presid[indx-kstart] -= pflux ;
 // 	presid[indx] += pflux ;
-// 	uresid[indx-kskip] -= uflux ;
+// 	uresid[indx-kstart] -= uflux ;
 // 	uresid[indx] += uflux ;
-// 	vresid[indx-kskip] -= vflux ;
+// 	vresid[indx-kstart] -= vflux ;
 // 	vresid[indx] += vflux ;
-// 	wresid[indx-kskip] -= wflux ;
+// 	wresid[indx-kstart] -= wflux ;
 // 	wresid[indx] += wflux ;
 //       }
 //     }
 //   }
 // }
 
+
 __global__ void computeResidual_I_kernel(float *presid, float *uresid, float *vresid, float *wresid,
-                 const float *p,
-                 const float *u, const float *v, const float *w,
-                 float eta, float nu, float dx, float dy, float dz,
-                 int ni, int nj, int nk, int kstart,
-                 int iskip, int jskip) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int j = blockIdx.y * blockDim.y + threadIdx.y;
-  int k = blockIdx.z * blockDim.z + threadIdx.z;
+    const float *p, const float *u, const float *v, const float *w,
+    float eta, float nu, float dx, float dy, float dz,
+    int ni, int nj, int nk, int kstart,
+    int iskip, int jskip) {
 
-  if (i < ni+1 && j < nj && k < nk) {
-  const float vcoef = nu / dx;
-  const float area = dy * dz;
-  int offset = kstart + i * iskip + j * jskip;
-  int indx = k + offset;
+  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  const int j = blockIdx.y;
+  const int k = kstart;
 
-  float ull = u[indx - 2 * iskip];
-  float ul = u[indx - iskip];
-  float ur = u[indx];
-  float urr = u[indx + iskip];
+  if (i < ni + 1 && j < nj && k < nk) {
+    const float ucoef = nu / dx;
+    const float area = dy * dz;
+    const float vcoef = nu / dy;
+    const float wcoef = nu / dz;
+    int offset = i + kstart * iskip + k * jskip;
+    const int indx = j * iskip + offset;
 
-  float vll = v[indx - 2 * iskip];
-  float vl = v[indx - iskip];
-  float vr = v[indx];
-  float vrr = v[indx + iskip];
+    // Compute the x direction inviscid flux
+    float ull = u[indx - 2 * jskip];
+    float ul  = u[indx - jskip];
+    float ur  = u[indx];
+    float urr = u[indx + jskip];
 
-  float wll = w[indx - 2 * iskip];
-  float wl = w[indx - iskip];
-  float wr = w[indx];
-  float wrr = w[indx + iskip];
+    float vll = v[indx - 2 * jskip];
+    float vl  = v[indx - jskip];
+    float vr  = v[indx];
+    float vrr = v[indx + jskip];
 
-  float pll = p[indx - 2 * iskip];
-  float pl = p[indx - iskip];
-  float pr = p[indx];
-  float prr = p[indx + iskip];
+    float wll = w[indx - 2 * jskip];
+    float wl  = w[indx - jskip];
+    float wr  = w[indx];
+    float wrr = w[indx + jskip];
 
-  float pterm = (2.0f / 3.0f) * (pl + pr) - (1.0f / 12.0f) * (pll + prr);
-  float udotn1 = ul + ur;
-  float udotn2 = ul + urr;
-  float udotn3 = ull + ur;
-  float pflux = eta * ((2.0f / 3.0f) * udotn1 - (1.0f / 12.0f) * (udotn2 + udotn3));
-  float uflux = ((1.0f / 3.0f) * (ul + ur) * udotn1 - (1.0f / 24.0f) * ((ul + urr) * udotn2 + (ull + ur) * udotn3) + pterm);
-  float vflux = ((1.0f / 3.0f) * (vl + vr) * udotn1 - (1.0f / 24.0f) * ((vl + vrr) * udotn2 + (vll + vr) * udotn3));
-  float wflux = ((1.0f / 3.0f) * (wl + wr) * udotn1 - (1.0f / 24.0f) * ((wl + wrr) * udotn2 + (wll + wr) * udotn3));
-  pflux *= area;
-  uflux = area*(uflux - vcoef*((5./4.)*(ur-ul) - (1./12.)*(urr-ull))) ;
-  vflux = area*(vflux - vcoef*((5./4.)*(vr-vl) - (1./12.)*(vrr-vll))) ;
-  wflux = area*(wflux - vcoef*((5./4.)*(wr-wl) - (1./12.)*(wrr-wll))) ;
-  presid[indx-iskip] -= pflux ;
-  presid[indx] += pflux ;
-  uresid[indx-iskip] -= uflux ;
-  uresid[indx] += uflux ;
-  vresid[indx-iskip] -= vflux ;
-  vresid[indx] += vflux ;
-  wresid[indx-iskip] -= wflux ;
-  wresid[indx] += wflux ;
+    float pll = p[indx - 2 * jskip];
+    float pl  = p[indx - jskip];
+    float pr  = p[indx];
+    float prr = p[indx + jskip];
+
+    float pterm = (2.f / 3.f) * (pl + pr) - (1.f / 12.f) * (pll + prr);
+    float udotn1 = ul + ur;
+    float udotn2 = ul + urr;
+    float udotn3 = ull + ur;
+    float pflux = eta * ((2.f / 3.f) * udotn1 - (1.f / 12.f) * (udotn2 + udotn3));
+
+    float uflux = ((1.f / 3.f) * (ul + ur) * udotn1 -
+        (1.f / 24.f) * ((ul + urr) * udotn2 + (ull + ur) * udotn3));
+
+    float vflux = ((1.f / 3.f) * (vl + vr) * udotn1 -
+        (1.f / 24.f) * ((vl + vrr) * udotn2 + (vll + vr) * udotn3));
+
+    float wflux = ((1.f / 3.f) * (wl + wr) * udotn1 -
+        (1.f / 24.f) * ((wl + wrr) * udotn2 + (wll + wr) * udotn3));
+  
+    // Store the residuals
+    presid[indx] = pflux * area;
+    uresid[indx] = uflux * area - ucoef * (urr - 2.f * ur + ul) * area;
+    vresid[indx] = vflux * area - vcoef * (vrr - 2.f * vr + vl) * area;
+    wresid[indx] = wflux * area - wcoef * (wrr - 2.f * wr + wl) * area;
   }
 }
+
+
+
 
 __global__ void computeResidual_J_kernel(float *presid, float *uresid, float *vresid, float *wresid,
-                 const float *p,
-                 const float *u, const float *v, const float *w,
-                 float eta, float nu, float dx, float dy, float dz,
-                 int ni, int nj, int nk, int kstart,
-                 int iskip, int jskip) {
-  int i = blockIdx.x * blockDim.x + threadIdx.x;
-  int j = blockIdx.y * blockDim.y + threadIdx.y;
-  int k = blockIdx.z * blockDim.z + threadIdx.z;
+    const float *p, const float *u, const float *v, const float *w,
+    float eta, float nu, float dx, float dy, float dz,
+    int ni, int nj, int nk, int kstart,
+    int iskip, int jskip) {
 
-  if (i < ni && j < nj+1 && k < nk) {
-  const float vcoef = nu / dy;
-  const float area = dx * dz;
-  int offset = kstart + i * iskip + j * jskip;
-  int indx = k + offset;
+  const int i = blockIdx.x;
+  const int j = blockIdx.y * blockDim.y + threadIdx.y;
+  const int k = kstart;
 
-  float ull = u[indx - 2 * jskip];
-  float ul = u[indx - jskip];
-  float ur = u[indx];
-  float urr = u[indx + jskip];
+  if (i < ni && j < nj + 1 && k < nk) {
+    const float ucoef = nu / dx;
+    const float area = dy * dz;
+    const float vcoef = nu / dy;
+    const float wcoef = nu / dz;
+    int offset = i + kstart * iskip + k * jskip;
+    const int indx = j + offset;
 
-  float vll = v[indx - 2 * jskip];
-  float vl = v[indx - jskip];
-  float vr = v[indx];
-  float vrr = v[indx + jskip];
+    // Compute the y direction inviscid flux
+    float vll = v[indx - 2 * iskip];
+    float vl  = v[indx - iskip];
+    float vr  = v[indx];
+    float vrr = v[indx + iskip];
 
-  float wll = w[indx - 2 * jskip];
-  float wl = w[indx - jskip];
-  float wr = w[indx];
-  float wrr = w[indx + jskip];
+    float ull = u[indx - 2 * iskip];
+    float ul  = u[indx - iskip];
+    float ur  = u[indx];
+    float urr = u[indx + iskip];
 
-  float pll = p[indx - 2 * jskip];
-  float pl = p[indx - jskip];
-  float pr = p[indx];
-  float prr = p[indx + jskip];
+    float wll = w[indx - 2 * iskip];
+    float wl  = w[indx - iskip];
+    float wr  = w[indx];
+    float wrr = w[indx + iskip];
 
-  float pterm = (2.0f / 3.0f) * (pl + pr) - (1.0f / 12.0f) * (pll + prr);
-  float udotn1 = vl + vr;
-  float udotn2 = vl + vrr;
-  float udotn3 = vll + vr;
-  float pflux = eta * ((2.0f / 3.0f) * udotn1 - (1.0f / 12.0f) * (udotn2 + udotn3));
-  float uflux = ((1.0f / 3.0f) * (ul + ur) * udotn1 - (1.0f / 24.0f) * ((ul + urr) * udotn2 + (ull + ur) * udotn3));
-  float vflux = ((1.0f / 3.0f) * (vl + vr) * udotn1 - (1.0f / 24.0f) * ((vl + vrr) * udotn2 + (vll + vr) * udotn3) + pterm);
-  float wflux = ((1.0f / 3.0f) * (wl + wr) * udotn1 - (1.0f / 24.0f) * ((wl + wrr) * udotn2 + (wll + wr) * udotn3));
-  pflux *= area;
-  uflux = area*(uflux - vcoef*((5./4.)*(ur-ul) - (1./12.)*(urr-ull))) ;
-  vflux = area*(vflux - vcoef*((5./4.)*(vr-vl) - (1./12.)*(vrr-vll))) ;
-  wflux = area*(wflux - vcoef*((5./4.)*(wr-wl) - (1./12.)*(wrr-wll))) ;
-  presid[indx-jskip] -= pflux ;
-  presid[indx] += pflux ;
-  uresid[indx-jskip] -= uflux ;
-  uresid[indx] += uflux ;
-  vresid[indx-jskip] -= vflux ;
-  vresid[indx] += vflux ;
-  wresid[indx-jskip] -= wflux ;
-  wresid[indx] += wflux ;
+    float pll = p[indx - 2 * iskip];
+    float pl  = p[indx - iskip];
+    float pr  = p[indx];
+    float prr = p[indx + iskip];
+
+    float vdotn1 = vl + vr;
+    float vdotn2 = vl + vrr;
+    float vdotn3 = vll + vr;
+    float pflux = eta * ((2.f / 3.f) * vdotn1 - (1.f / 12.f) * (vdotn2 + vdotn3));
+
+    float uflux = ((1.f / 3.f) * (ul + ur) * vdotn1 -
+        (1.f / 24.f) * ((ul + urr) * vdotn2 + (ull + ur) * vdotn3));
+
+    float vflux = ((1.f / 3.f) * (vl + vr) * vdotn1 -
+        (1.f / 24.f) * ((vl + vrr) * vdotn2 + (vll + vr) * vdotn3));
+
+    float wflux = ((1.f / 3.f) * (wl + wr) * vdotn1 -
+        (1.f / 24.f) * ((wl + wrr) * vdotn2 + (wll + wr) * vdotn3));
+
+    // Store the residuals
+    presid[indx] = pflux * area;
+    uresid[indx] = uflux * area - vcoef * (urr - 2.f * ur + ul) * area;
+    vresid[indx] = vflux * area - vcoef * (vrr - 2.f * vr + vl) * area;
+    wresid[indx] = wflux * area - vcoef * (wrr - 2.f * wr + wl) * area;
+    }
   }
-}
+
+
+
+
 
 __global__ void computeResidual_K_kernel(float *presid, float *uresid, float *vresid, float *wresid,
-                 const float *p,
-                 const float *u, const float *v, const float *w,
-                 float eta, float nu, float dx, float dy, float dz,
-                 int ni, int nj, int nk, int kstart,
-                 int iskip, int jskip) {
+            const float *p, const float *u, const float *v, const float *w,
+            float eta, float nu, float dx, float dy, float dz,
+            int ni, int nj, int nk, int kstart, int iskip, int jskip) {
+
+  const int kskip = 1;
+
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   int j = blockIdx.y * blockDim.y + threadIdx.y;
-  int k = blockIdx.z * blockDim.z + threadIdx.z;
 
-  if (i < ni && j < nj && k < nk+1) {
-  const float vcoef = nu / dz;
-  const float area = dx * dy;
+  if (i >= ni || j >= nj) return;
+
+    const float ucoef = nu / dx;
+    const float area = dy * dz;
+    const float vcoef = nu / dy;
+    const float wcoef = nu / dz;
+
   int offset = kstart + i * iskip + j * jskip;
-  int indx = k + offset;
 
-  float ull = u[indx - 2 * kskip];
-  float ul = u[indx - kskip];
-  float ur = u[indx];
-  float urr = u[indx + kskip];
+  for (int k = 0; k < nk + 1; ++k) {
+    const int indx = k + offset;
 
-  float vll = v[indx - 2 * kskip];
-  float vl = v[indx - kskip];
-  float vr = v[indx];
-  float vrr = v[indx + kskip];
+    float ull = u[indx - 2 * kskip];
+    float ul = u[indx - kskip];
+    float ur = u[indx];
+    float urr = u[indx + kskip];
 
-  float wll = w[indx - 2 * kskip];
-  float wl = w[indx - kskip];
-  float wr = w[indx];
-  float wrr = w[indx + kskip];
+    float vll = v[indx - 2 * kskip];
+    float vl = v[indx - kskip];
+    float vr = v[indx];
+    float vrr = v[indx + kskip];
 
-  float pll = p[indx - 2 * kskip];
-  float pl = p[indx - kskip];
-  float pr = p[indx];
-  float prr = p[indx + kskip];
+    float wll = w[indx - 2 * kskip];
+    float wl = w[indx - kskip];
+    float wr = w[indx];
+    float wrr = w[indx + kskip];
 
-  float pterm = (2.0f / 3.0f) * (pl + pr) - (1.0f / 12.0f) * (pll + prr);
-  float udotn1 = wl + wr;
-  float udotn2 = wl + wrr;
-  float udotn3 = wll + wr;
-  float pflux = eta * ((2.0f / 3.0f) * udotn1 - (1.0f / 12.0f) * (udotn2 + udotn3));
-  float uflux = ((1.0f / 3.0f) * (ul + ur) * udotn1 - (1.0f / 24.0f) * ((ul + urr) * udotn2 + (ull + ur) * udotn3));
-  float vflux = ((1.0f / 3.0f) * (vl + vr) * udotn1 - (1.0f / 24.0f) * ((vl + vrr) * udotn2 + (vll + vr) * udotn3));
-  float wflux = ((1.0f / 3.0f) * (wl + wr) * udotn1 - (1.0f / 24.0f) * ((wl + wrr) * udotn2 + (wll + wr) * udotn3) + pterm);
-  pflux *= area;
-  uflux = area*(uflux - vcoef*((5./4.)*(ur-ul) - (1./12.)*(urr-ull))) ;
-  vflux = area*(vflux - vcoef*((5./4.)*(vr-vl) - (1./12.)*(vrr-vll))) ;
-  wflux = area*(wflux - vcoef*((5./4.)*(wr-wl) - (1./12.)*(wrr-wll))) ;
-  presid[indx-kskip] -= pflux ;
-  presid[indx] += pflux ;
-  uresid[indx-kskip] -= uflux ;
-  uresid[indx] += uflux ;
-  vresid[indx-kskip] -= vflux ;
-  vresid[indx] += vflux ;
-  wresid[indx-kskip] -= wflux ;
-  wresid[indx] += wflux ;
+    float pll = p[indx - 2 * kskip];
+    float pl = p[indx - kskip];
+    float pr = p[indx];
+    float prr = p[indx + kskip];
+
+    float pterm = (2.f / 3.f) * (pl + pr) - (1.f / 12.f) * (pll + prr);
+    float udotn1 = wl + wr;
+    float udotn2 = wl + wrr;
+    float udotn3 = wll + wr;
+
+    float pflux = eta * ((2.f / 3.f) * udotn1 - (1.f / 12.f) * (udotn2 + udotn3));
+    float uflux = (1.f / 3.f) * (ul + ur) * udotn1 - (1.f / 24.f) * ((ul + urr) * udotn2 + (ull + ur) * udotn3);
+    float vflux = (1.f / 3.f) * (vl + vr) * udotn1 - (1.f / 24.f) * ((vl + vrr) * udotn2 + (vll + vr) * udotn3);
+    float wflux = (1.f / 3.f) * (wl + wr) * udotn1 - (1.f / 24.f) * ((wl + wrr) * udotn2 + (wll + wr) * udotn3) + pterm;
+
+    pflux *= area;
+    uflux = area * (uflux - ucoef * (urr - 2.f * ur + ul));
+    vflux = area * (vflux - ucoef * (vrr - 2.f * vr + vl));
+    wflux = area * (wflux - ucoef * (wrr - 2.f * wr + wl));
+    presid[indx] = pflux;
+    uresid[indx] = uflux;
+    vresid[indx] = vflux;
+    wresid[indx] = wflux;
+
+    offset += kskip;
   }
 }
 
 
-// Calculate the stable timestep considering inviscid and viscous terms
-// float computeStableTimestep(const float *u, const float *v, const float *w,
-// 			    float cfl, float eta, float nu,
-// 			    float dx, float dy, float dz,
-// 			    int ni, int nj, int nk, int kstart,
-// 			    int iskip, int jskip) {
-//   float minDt = 1e30;
-//   for(int i=0;i<ni;++i) {
-//     for(int j=0;j<nj;++j) {
-//       int offset = kstart+i*iskip+j*jskip;
-//       for(int k=0;k<nk;++k) {
-// 	const int indx = k+offset ;
-// 	// inviscid timestep
-// 	const float maxu2 = max(u[indx]*u[indx],max(v[indx]*v[indx],w[indx]*w[indx])) ;
-// 	const float af = sqrt(maxu2+eta) ;
-// 	const float maxev = sqrt(maxu2)+af ;
-// 	const float sum = maxev*(1./dx+1./dy+1./dz) ;
-// 	minDt=min(minDt,cfl/sum) ;
-// 	// viscous stable timestep
-// 	const float dist = min(dx,min(dy,dz)) ;
-// 	minDt=min<float>(minDt,0.2*cfl*dist*dist/nu) ;
-//       }
-//     }
-//   }
-//   return minDt ;
-// }
+
+
+
+
+
+
+//Calculate the stable timestep considering inviscid and viscous terms
+float computeStableTimestep(const float *u, const float *v, const float *w,
+			    float cfl, float eta, float nu,
+			    float dx, float dy, float dz,
+			    int ni, int nj, int nk, int kstart,
+			    int iskip, int jskip) {
+  float minDt = 1e30;
+  for(int i=0;i<ni;++i) {
+    for(int j=0;j<nj;++j) {
+      int offset = kstart+i*iskip+j*jskip;
+      for(int k=0;k<nk;++k) {
+	const int indx = k+offset ;
+	// inviscid timestep
+	const float maxu2 = max(u[indx]*u[indx],max(v[indx]*v[indx],w[indx]*w[indx])) ;
+	const float af = sqrt(maxu2+eta) ;
+	const float maxev = sqrt(maxu2)+af ;
+	const float sum = maxev*(1./dx+1./dy+1./dz) ;
+	minDt=min(minDt,cfl/sum) ;
+	// viscous stable timestep
+	const float dist = min(dx,min(dy,dz)) ;
+	minDt=min<float>(minDt,0.2*cfl*dist*dist/nu) ;
+      }
+    }
+  }
+  return minDt ;
+}
+
 
 
 
@@ -742,30 +768,32 @@ void ComputeStableTimestep_Kernel(float *scratch, const float *u, const float *v
   minDt = min(minDt,cfl/sum) ;
   // viscous stable timestep
   const float dist = min(dx,min(dy,dz)) ;
-  minDt = min(minDt, 0.2 * cfl * dist * dist / nu)
+  minDt = min(minDt, 0.2 * cfl * dist * dist / nu);
+  __syncthreads();
+  scratch[k] = minDt;
   }
 }
 
 
 // Compute the fluid kinetic energy contained within the simulation domain
-// float integrateKineticEnergy(const float *u, const float *v, const float *w,
-// 			    float dx, float dy, float dz,
-// 			    int ni, int nj, int nk, int kstart,
-// 			    int iskip, int jskip) {
-//   double vol = dx*dy*dz ;
-//   double sum = 0 ;
-//   for(int i=0;i<ni;++i) {
-//     for(int j=0;j<nj;++j) {
-//       int offset = kstart+i*iskip+j*jskip;
-//       for(int k=0;k<nk;++k) {
-// 	const int indx = k+offset ;
-// 	const float udotu = u[indx]*u[indx]+v[indx]*v[indx]+w[indx]*w[indx] ;
-// 	sum += 0.5*vol*udotu ;
-//       }
-//     }
-//   }
-//   return sum ;
-// }
+float integrateKineticEnergy(const float *u, const float *v, const float *w,
+			    float dx, float dy, float dz,
+			    int ni, int nj, int nk, int kstart,
+			    int iskip, int jskip) {
+  double vol = dx*dy*dz ;
+  double sum = 0 ;
+  for(int i=0;i<ni;++i) {
+    for(int j=0;j<nj;++j) {
+      int offset = kstart+i*iskip+j*jskip;
+      for(int k=0;k<nk;++k) {
+	const int indx = k+offset ;
+	const float udotu = u[indx]*u[indx]+v[indx]*v[indx]+w[indx]*w[indx] ;
+	sum += 0.5*vol*udotu ;
+      }
+    }
+  }
+  return sum ;
+}
 
 
 // Compute the fluid kinetic energy contained within the simulation domain
@@ -788,6 +816,7 @@ void integrateKineticEnergy_kernel(float *scratch,
     sum += 0.5*vol*udotu ;
   }
   // We store the sums over the k iteration into the scratch array
+  __syncthreads();
   scratch[i*nk+k] = sum ;
 }
 
@@ -827,24 +856,25 @@ void sumKernel(float *sum) {
 }
 
 __global__ 
-void minKernel(float *min) {
+void minKernel(float *minVal) {
   int t = threadIdx.x ;
   int b = blockIdx.x ;
   __shared__ float scratch[1024] ;
-  scratch[t] = min[b*blockDim.x+t] ; // load shared memory
+  scratch[t] = minVal[b*blockDim.x+t] ; // load shared memory
   int nthreads = blockDim.x ;
   int offset = nthreads ;
   while(offset > 2) { // sum into shared
     offset >>= 1 ; // offset = offset / 2
     __syncthreads() ;
-    if(t < offset) // if our thread is writing to memory ,write sum
+    if(t < offset) // if our thread is writing to memory, write sum
       scratch[t] = min(scratch[t],scratch[t+offset]) ;
   }
   __syncthreads() ;
   if(t==0)
-    min[b] = min(scratch[0],scratch[1]) ;
+    minVal[b] = min(scratch[0],scratch[1]) ;
   
 }
+
 
 // Perform a weighted sum of three arrays
 // Note, the last weight is used for the input array (no aliasing)
@@ -859,6 +889,7 @@ void weightedSum3_kernel(float *uout, float w1, const float *u1, float w2,
       int offset = kstart+i*iskip+j*jskip;
 	const int indx = k+offset ;
 	uout[indx] = w1*u1[indx] + w2*u2[indx] + w3*uout[indx] ;
+  __syncthreads() ;
   }
 }
 
@@ -990,6 +1021,7 @@ int main(int ac, char *av[]) {
   vector<float> uresid(allocsize) ;
   vector<float> vresid(allocsize) ;
   vector<float> wresid(allocsize) ;
+  vector<float> total(allocsize) ;
   // Allocate on cuda side
   float *p_cuda = allocate_gpu(allocsize,"p") ;
   float *u_cuda = allocate_gpu(allocsize,"u") ;
@@ -1017,8 +1049,7 @@ int main(int ac, char *av[]) {
 //  setInitialConditions(&p[0], &u[0], &v[0], &w[0],
 //		       ni, nj, nk, kstart, iskip, jskip, L) ;
 
-  setInitialConditions_kernel<<<ni,nk>>>(p_cuda, u_cuda, v_cuda, w_cuda,
-					 ni, nj, nk, kstart, iskip, jskip, L) ;
+  setInitialConditions_kernel<<<ni,nk>>>(p_cuda, u_cuda, v_cuda, w_cuda, ni, nj, nk, kstart, iskip, jskip, L) ;
   
 
 
@@ -1032,8 +1063,7 @@ int main(int ac, char *av[]) {
   // Find initial integrated fluid kinetic energy to monitor solution 
   //  float kprev = integrateKineticEnergy(&u[0], &v[0], &w[0], dx, dy, dz,
   //				       ni,  nj,  nk, kstart, iskip, jskip) ;
-  integrateKineticEnergy_kernel<<<ni,nk>>>(scratch_cuda,u_cuda, v_cuda, w_cuda, dx, dy, dz,
-					   ni,  nj,  nk, kstart, iskip, jskip) ;
+  integrateKineticEnergy_kernel<<<ni,nk>>>(scratch_cuda,u_cuda, v_cuda, w_cuda, dx, dy, dz, ni,  nj,  nk, kstart, iskip, jskip) ;
   int ntot = ni*nk ;
   int nblocks = ntot>>10 ;
   sumKernel<<<nblocks,1024>>>(scratch_cuda) ;
@@ -1051,9 +1081,13 @@ int main(int ac, char *av[]) {
   float simTime = 0 ;
   int iter = 0 ;
 
-  float dt = computeStableTimestep(&u[0], &v[0], &w[0],
-				   cflmax, eta, nu, dx, dy, dz,
-				   ni, nj, nk, kstart, iskip, jskip) ;
+  //float dt = computeStableTimestep(&u[0], &v[0], &w[0], cflmax, eta, nu, dx, dy, dz, ni, nj, nk, kstart, iskip, jskip) ;
+  ComputeStableTimestep_Kernel<<<ni,nk>>>(scratch_cuda,u_cuda, v_cuda, w_cuda,cflmax, eta, nu, dx, dy, dz, ni,  nj,  nk, kstart, iskip, jskip) ;
+  copy_gpu_to_cpu(scratch_cuda,&tmp[0],nblocks,"sum") ;
+  float dt = tmp[0] ;
+  for(int i=1;i<nblocks;++i) 
+    dt += tmp[i] ;
+  dt = dt/((ni+4)*(nj+4)*(nk+4)) ;
 
   // begin Runge-Kutta 3rd Order Time Integration
   while(simTime < stopTime) {
@@ -1076,29 +1110,21 @@ int main(int ac, char *av[]) {
     // copy data to the ghost cells to implement periodic boundary conditions
     // copyPeriodic(&p[0],&u[0],&v[0],&w[0],
 		//  ni, nj, nk, kstart, iskip, jskip) ;
-    copy_cpu_to_gpu(p_cuda, &p[0],allocsize, "p");
-    copy_cpu_to_gpu(u_cuda, &u[0],allocsize, "u");
-    copy_cpu_to_gpu(v_cuda, &v[0],allocsize, "v");
-    copy_cpu_to_gpu(w_cuda, &w[0],allocsize, "w");
-    copyPeriodic_kernel<<<ni,nk>>>(p_cuda,u_cuda,v_cuda,w_cuda,
-            ni, nj, nk, kstart, iskip, jskip) ;
+    // copy_cpu_to_gpu(p_cuda, &p[0],allocsize, "p");
+    // copy_cpu_to_gpu(u_cuda, &u[0],allocsize, "u");
+    // copy_cpu_to_gpu(v_cuda, &v[0],allocsize, "v");
+    // copy_cpu_to_gpu(w_cuda, &w[0],allocsize, "w");
+    copyPeriodicKernel<<<ni,nk>>>(p_cuda,u_cuda,v_cuda,w_cuda, ni, nj, nk, kstart, iskip, jskip) ;
     // Zero out the residual function 
     // zeroResidual(&presid[0],&uresid[0], &vresid[0], &wresid[0],
 		//  ni, nj, nk , kstart, iskip, jskip) ;
-    __syncthreads() ;
 
 
 
-    copy_cpu_to_gpu(presid_cuda, &presid[0],allocsize, "presid");
-    copy_cpu_to_gpu(uresid_cuda, &uresid[0],allocsize, "uresid");
-    copy_cpu_to_gpu(vresid_cuda, &vresid[0],allocsize, "vresid");
-    copy_cpu_to_gpu(wresid_cuda, &wresid[0],allocsize, "wresid");
 
-    zeroResidual_kernel<<<ni,nk>>>(presid_cuda,uresid_cuda, vresid_cuda, wresid_cuda,
-            ni, nj, nk , kstart, iskip, jskip) ;
+    zeroResidual_kernel<<<ni,nk>>>(presid_cuda,uresid_cuda, vresid_cuda, wresid_cuda, ni, nj, nk , kstart, iskip, jskip) ;
     // Compute the residual, these will be used to compute the rates of change
     // of pressure and velocity components
-     __syncthreads() ;
 
 
     // computeResidual(&presid[0], &uresid[0], &vresid[0], &wresid[0],
@@ -1106,45 +1132,32 @@ int main(int ac, char *av[]) {
 		//     eta, nu, dx, dy, dz,
 		//     ni, nj, nk, kstart, iskip, jskip) ;
 
-    copy_cpu_to_gpu(p_cuda, &p[0],allocsize, "p");
-    copy_cpu_to_gpu(u_cuda, &u[0],allocsize, "u");
-    copy_cpu_to_gpu(v_cuda, &v[0],allocsize, "v");
-    copy_cpu_to_gpu(w_cuda, &w[0],allocsize, "w");
     // copy_cpu_to_gpu(presid_cuda, &presid[0],allocsize, "presid");
     // copy_cpu_to_gpu(uresid_cuda, &uresid[0],allocsize, "uresid");
     // copy_cpu_to_gpu(vresid_cuda, &vresid[0],allocsize, "vresid");
     // copy_cpu_to_gpu(wresid_cuda, &wresid[0],allocsize, "wresid");
-    computeResidual_kernel_I<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
-           p_cuda,u_cuda, v_cuda, w_cuda,
-           eta, nu, dx, dy, dz,
-           ni, nj, nk, kstart, iskip, jskip) ;
-    computeResidual_kernel_J<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
+    computeResidual_I_kernel<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,p_cuda,u_cuda, v_cuda, w_cuda, eta, nu, dx, dy, dz, ni, nj, nk, kstart, iskip, jskip) ;
+    computeResidual_J_kernel<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
             p_cuda,u_cuda, v_cuda, w_cuda,
             eta, nu, dx, dy, dz,
             ni, nj, nk, kstart, iskip, jskip) ;
-    computeResidual_kernel_K<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
+    computeResidual_K_kernel<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
             p_cuda,u_cuda, v_cuda, w_cuda,
             eta, nu, dx, dy, dz,
             ni, nj, nk, kstart, iskip, jskip) ;
-    __syncthreads() ;
     
     // First Step of the Runge-Kutta time integration
     // unext = u^n + dt/vol*L(u^n)
     // call copycputogpu
-    copy_cpu_to_gpu(pnext_cuda, &p[0],allocsize, "p");
-    copy_cpu_to_gpu(unext_cuda, &u[0],allocsize, "u");
-    copy_cpu_to_gpu(vnext_cuda, &v[0],allocsize, "v");
-    copy_cpu_to_gpu(wnext_cuda, &w[0],allocsize, "w");
-    weightedSum3__kernel<<<ni,nk>>>(pnext_cuda,1.0,&p[0],dt/(dx*dy*dz),presid_cuda,0.0,
+    weightedSum3_kernel<<<ni,nk>>>(pnext_cuda,1.0,&p[0],dt/(dx*dy*dz),presid_cuda,0.0,
 		ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3__kernel<<<ni,nk>>>(unext_cuda,1.0,&u[0],dt/(dx*dy*dz),uresid_cuda,0.0,
+    weightedSum3_kernel<<<ni,nk>>>(unext_cuda,1.0,&u[0],dt/(dx*dy*dz),uresid_cuda,0.0,
     ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3__kernel<<<ni,nk>>>(vnext_cuda,1.0,&v[0],dt/(dx*dy*dz),vresid_cuda,0.0,
+    weightedSum3_kernel<<<ni,nk>>>(vnext_cuda,1.0,&v[0],dt/(dx*dy*dz),vresid_cuda,0.0,
     ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3__kernel<<<ni,nk>>>(wnext_cuda,1.0,&w[0],dt/(dx*dy*dz),wresid_cuda,0.0,
+    weightedSum3_kernel<<<ni,nk>>>(wnext_cuda,1.0,&w[0],dt/(dx*dy*dz),wresid_cuda,0.0,
     ni, nj, nk, kstart, iskip, jskip) ;
-    __syncthreads() ;
-    
+
     // weightedSum3(&pnext[0],1.0,&p[0],dt/(dx*dy*dz),&presid[0],0.0,
 		//  ni, nj, nk, kstart, iskip, jskip) ;
     // weightedSum3(&unext[0],1.0,&u[0],dt/(dx*dy*dz),&uresid[0],0.0,
@@ -1168,19 +1181,13 @@ int main(int ac, char *av[]) {
             ni, nj, nk, kstart, iskip, jskip) ;
     // zeroResidual(&presid[0],&uresid[0], &vresid[0], &wresid[0],
 		//  ni, nj, nk , kstart, iskip, jskip) ;
-    __syncthreads() ;
     zeroResidual_kernel<<<ni,nk>>>(presid_cuda,uresid_cuda, vresid_cuda, wresid_cuda,
             ni, nj, nk , kstart, iskip, jskip) ;
     // computeResidual(&presid[0], &uresid[0], &vresid[0], &wresid[0],
 		//     &pnext[0],&unext[0], &vnext[0], &wnext[0],
 		//     eta, nu, dx, dy, dz,
 		//     ni, nj, nk, kstart, iskip, jskip) ;
-    __syncthreads() ;
-    computeResidual_kernel_I<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
-           pnext_cuda,unext_cuda, vnext_cuda, wnext_cuda,
-           eta, nu, dx, dy, dz,
-           ni, nj, nk, kstart, iskip, jskip) ;
-    __syncthreads() ;
+
 
 
 
@@ -1196,15 +1203,14 @@ int main(int ac, char *av[]) {
     // weightedSum3(&wnext[0],3./4.,&w[0],dt/(4.*dx*dy*dz),&wresid[0],1./4.,
 		//  ni, nj, nk, kstart, iskip, jskip) ;
 
-    weightedSum3__kernel<<<ni,nk>>>(pnext_cuda,3./4.,&p[0],dt/(4.*dx*dy*dz),presid_cuda,1./4.,
+    weightedSum3_kernel<<<ni,nk>>>(pnext_cuda,3./4.,&p[0],dt/(4.*dx*dy*dz),presid_cuda,1./4.,
             ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3__kernel<<<ni,nk>>>(unext_cuda,3./4.,&u[0],dt/(4.*dx*dy*dz),uresid_cuda,1./4.,
+    weightedSum3_kernel<<<ni,nk>>>(unext_cuda,3./4.,&u[0],dt/(4.*dx*dy*dz),uresid_cuda,1./4.,
             ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3__kernel<<<ni,nk>>>(vnext_cuda,3./4.,&v[0],dt/(4.*dx*dy*dz),vresid_cuda,1./4.,
+    weightedSum3_kernel<<<ni,nk>>>(vnext_cuda,3./4.,&v[0],dt/(4.*dx*dy*dz),vresid_cuda,1./4.,
             ni, nj, nk, kstart, iskip, jskip) ;
-    weightedSum3__kernel<<<ni,nk>>>(wnext_cuda,3./4.,&w[0],dt/(4.*dx*dy*dz),wresid_cuda,1./4.,
+    weightedSum3_kernel<<<ni,nk>>>(wnext_cuda,3./4.,&w[0],dt/(4.*dx*dy*dz),wresid_cuda,1./4.,
             ni, nj, nk, kstart, iskip, jskip) ;
-    __syncthreads() ;
 
     // Now we are evaluating the final step of the Runge-Kutta time integration
     // so we need to revaluate the residual on the pnext values
@@ -1212,21 +1218,18 @@ int main(int ac, char *av[]) {
 		//  ni, nj, nk, kstart, iskip, jskip) ;
     copyPeriodicKernel<<<ni,nk>>>(pnext_cuda,unext_cuda,vnext_cuda,wnext_cuda,
             ni, nj, nk, kstart, iskip, jskip) ;
-    __syncthreads
     // zeroResidual(&presid[0],&uresid[0], &vresid[0], &wresid[0],
 		//  ni, nj, nk , kstart, iskip, jskip) ;
     zeroResidual_kernel<<<ni,nk>>>(presid_cuda,uresid_cuda, vresid_cuda, wresid_cuda,
             ni, nj, nk , kstart, iskip, jskip) ;
-    __syncthreads() ;
     // computeResidual(&presid[0], &uresid[0], &vresid[0], &wresid[0],
 		//     &pnext[0],&unext[0], &vnext[0], &wnext[0],
 		//     eta, nu, dx, dy, dz,
-		//     ni, nj, nk, kstart, iskip, jskip) ;
-    computeResidual_kernel_I<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
-           pnext_cuda,unext_cuda, vnext_cuda, wnext_cuda,
-           eta, nu, dx, dy, dz,
-           ni, nj, nk, kstart, iskip, jskip) ;
-    __syncthreads() ;
+		// //     ni, nj, nk, kstart, iskip, jskip) ;
+    // computeResidual_kernel_I<<<ni,nk>>>(presid_cuda, uresid_cuda, vresid_cuda, wresid_cuda,
+    //        pnext_cuda,unext_cuda, vnext_cuda, wnext_cuda,
+    //        eta, nu, dx, dy, dz,
+    //        ni, nj, nk, kstart, iskip, jskip) ;
     
     // Third Step of the Runge-Kutta time integration
     // u^{n+1} = 1/3 u^n + 2/3 unext + (2/3)*(dt/vol)*L(unext)
@@ -1250,7 +1253,6 @@ int main(int ac, char *av[]) {
             ni, nj, nk, kstart, iskip, jskip) ;
     weightedSum3_kernel<<<ni,nk>>>(w_cuda,2./3.,wnext_cuda,2.*dt/(3.*dx*dy*dz),wresid_cuda,1./3.,
             ni, nj, nk, kstart, iskip, jskip) ;
-    __syncthreads() ;
 
 
 
@@ -1260,12 +1262,14 @@ int main(int ac, char *av[]) {
     iter++ ;
 
     // Collect information on the state of kinetic energy in the system
-    // float knext = integrateKineticEnergy(&u[0], &v[0], &w[0], dx, dy, dz,
-		// 			 ni,  nj,  nk, kstart, iskip, jskip) ;
+    float knext = integrateKineticEnergy(&u[0], &v[0], &w[0], dx, dy, dz,
+					 ni,  nj,  nk, kstart, iskip, jskip) ;
 
-    float knext = integrateKineticEnergy_kernel<<<ni,nk>>>(u_cuda, v_cuda, w_cuda, dx, dy, dz,
-            ni,  nj,  nk, kstart, iskip, jskip) ;
-    __syncthreads() ;
+
+
+
+    
+    
 //################################################################################################################
     // write out the data for post processing analysis
     ke_file << simTime << " " << kscale*knext << " " << -kscale*(knext-kprev)/dt << endl;
